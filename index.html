@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> DEMO AI Waiter</title>
+    <style>
+        body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 24px; }
+        h1 { text-align: center; }
+        #chat { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 12px; margin-bottom: 16px; background: #fafafa; border-radius: 4px; }
+        .user { color: #0078d7; }
+        .ai { color: #333; }
+        #orderForm { display: flex; }
+        #orderInput { flex: 1; padding: 8px; border-radius: 4px 0 0 4px; border: 1px solid #ccc; }
+        #sendBtn, #voiceBtn, #orderBtn, #preOrderBtn, #reserveBtn, #menuBtn, #makePaymentBtn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            min-width: 100px;
+            margin-bottom: 6px;
+            background: #0078d7;
+            color: #fff;
+        }
+        #sendBtn:hover, #voiceBtn:hover, #orderBtn:hover, #preOrderBtn:hover, #reserveBtn:hover, #menuBtn:hover, #makePaymentBtn:hover {
+            background: #005fa3;
+            color: #fff;
+            box-shadow: 0 2px 8px #bbb;
+        }
+        @media (max-width: 600px) {
+            .container { max-width: 98vw; padding: 8px; }
+            #orderForm { flex-direction: column; }
+            #orderInput, #sendBtn, #voiceBtn {
+                width: 100%;
+                border-radius: 4px;
+                margin-bottom: 6px;
+            }
+            #preOrderBtn, #reserveBtn, #menuBtn, #makePaymentBtn {
+                min-width: 80px;
+                font-size: 0.95rem;
+                padding: 8px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img id="randomImage" src="" alt="Random Food or Guest" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:16px; margin-top:0; display:block;" />
+        <h1>  DEMO AI WAITER </h1>
+        
+        <!-- Add action buttons here -->
+        <div id="actionBar" style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            <button id="preOrderBtn" class="action-button">Pre Order</button>
+            <button id="reserveBtn" class="action-button">Table Reservation</button>
+            <button id="menuBtn" class="action-button">Menu</button>
+            <button id="makePaymentBtn" class="action-button" style="background:#ff9800;">Make Payment</button>
+        </div>
+        
+        <div id="chat"></div>
+        <form id="orderForm">
+            <input type="text" id="orderInput" placeholder="Type your order or question..." autocomplete="off" required />
+            <button type="submit" id="sendBtn">Send</button>
+            <button type="button" id="voiceBtn" style="margin-left:8px;">🎤</button>
+        </form>
+    </div>
+    <footer style="text-align:center; margin-top:24px; color:#888; font-size:14px;">
+        Powered by I.TEE CONCEPT GLOBAL
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        const chat = document.getElementById('chat');
+        const orderForm = document.getElementById('orderForm');
+        const orderInput = document.getElementById('orderInput');
+        const randomImage = document.getElementById('randomImage');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const preOrderBtn = document.getElementById('preOrderBtn');
+        const reserveBtn = document.getElementById('reserveBtn');
+        const menuBtn = document.getElementById('menuBtn');
+        const makePaymentBtn = document.getElementById('makePaymentBtn');
+
+        // Random image logic
+        const images = [
+            // New high-quality food image
+            'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+            // New chef image
+            'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=800&q=80',
+            // New smiling customer image
+            'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=800&q=80',
+            // New restaurant interior image
+            'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=800&q=80',
+            // New group of friends dining
+            // New elegant dish
+            'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=800&q=80',
+            // Banquet hall image
+        ];
+        function setRandomImage() {
+            const idx = Math.floor(Math.random() * images.length);
+            randomImage.src = images[idx];
+        }
+        setRandomImage();
+        setInterval(setRandomImage, 4000); // Change image every 4 seconds
+        randomImage.onerror = setRandomImage;
+
+        // Voice synthesis
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = 'en-US';
+                window.speechSynthesis.speak(utter);
+            }
+        }
+
+        // Voice recognition
+        let recognizing = false;
+        let recognition;
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                orderInput.value = transcript;
+                orderForm.dispatchEvent(new Event('submit'));
+            };
+            recognition.onend = function() { recognizing = false; voiceBtn.textContent = '🎤'; };
+        }
+
+        voiceBtn.addEventListener('click', function() {
+            if (recognition && !recognizing) {
+                recognition.start();
+                recognizing = true;
+                voiceBtn.textContent = '🛑';
+            } else if (recognition && recognizing) {
+                recognition.stop();
+                recognizing = false;
+                voiceBtn.textContent = '🎤';
+            }
+        });
+
+        // Only show the order button once per session
+        let orderButtonShown = false;
+
+        function aiResponse(message) {
+            const lowerMsg = message.toLowerCase();
+            let response = "";
+            const paymentReminder = " After ordering, please return here to make payment so we can serve you faster.";
+            if (lowerMsg.includes('menu')) {
+                response = "Absolutely! Here's our menu: Pizza, Pasta, Salad, and Soup. May I recommend you check the chef's signature dish first? If you have any preferences or dietary needs, just let me know—I'm here to make your dining experience wonderful.";
+            } else if (lowerMsg.includes('pizza')) {
+                response = "Our pizza is made with fresh, hand-tossed dough and the finest ingredients. Would you like to try the chef's signature Margherita pizza? It's highly recommended!";
+            } else if (lowerMsg.includes('pasta')) {
+                response = "Our pasta is cooked to perfection and served with a variety of delicious sauces. The chef's signature pasta is a creamy Alfredo—would you like to give it a try?";
+            } else if (lowerMsg.includes('salad')) {
+                response = "Our salads are crisp, fresh, and full of flavor. The chef's signature salad features a delightful mix of greens, nuts, and a house-made dressing. Would you like to try it?";
+            } else if (lowerMsg.includes('soup')) {
+                response = "Our soups are warm and comforting. The chef's signature soup today is a creamy tomato basil—it's a must-try! Would you like a bowl?";
+            } else if (lowerMsg.includes('order') || lowerMsg.includes('pre order')) {
+                logOrderToBlockchain(message);
+                response = "Thank you for your order! I'll make sure it's prepared just the way you like it. If you need anything else or want to add to your order, please let me know. Your satisfaction is my priority! Now, kindly make payment using the account details above and come back here to confirm so your order can be processed expressly.";
+            } else if (lowerMsg.includes('pay')) {
+                processPaymentOnBlockchain();
+                response = "Please place your order first using the 'Place Order' button below. Once your order is placed, you can make payment using the account details provided. If you need any assistance, I'm here to help!";
+            } else if (lowerMsg.includes('table reservation')) {
+                response = "Table reservation is available! Please provide your preferred date, time, and number of guests. I'll make sure your table is ready for you.";
+            } else if (lowerMsg.includes('thank')) {
+                response = "You're most welcome! It's my pleasure to assist you. If you need anything else, just let me know. Enjoy your dining experience!";
+            } else {
+                response = "Welcome! I'm your friendly AI waiter, here to make your dining experience delightful. If you have any questions about the menu or need recommendations, just ask. May I suggest you check the chef's signature dish first?";
+            }
+            response += paymentReminder;
+            response += '<br><button id="orderBtn" style="margin-top:10px;padding:8px 16px;background:#0078d7;color:#fff;border:none;border-radius:4px;cursor:pointer;">Place Order</button>';
+            return response;
+        }
+
+        // Intercept chat to handle order button click
+        function appendMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = sender;
+            if (sender === 'ai') {
+                div.innerHTML = (sender === 'user' ? 'You: ' : 'AI: ') + text;
+            } else {
+                div.textContent = (sender === 'user' ? 'You: ' : 'AI: ') + text;
+            }
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            if (sender === 'ai') {
+                speak(div.textContent.replace(/<[^>]+>/g, ''));
+                // Add event listener for order button
+                setTimeout(() => {
+                    const btn = div.querySelector('#orderBtn');
+                    if (btn) {
+                        btn.onclick = function() {
+                            window.open('https://www.restaurantlogin.com/api/fb/56_v_dq', '_blank');
+                        };
+                    }
+                }, 100);
+            }
+        }
+
+        async function logOrderToBlockchain(order) {
+            // Connect to Ethereum using ethers.js and MetaMask
+            if (window.ethereum && window.ethers) {
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                    const signer = provider.getSigner();
+                    // Example: send a dummy transaction (replace with your contract interaction)
+                    const tx = await signer.sendTransaction({
+                        to: signer.getAddress(), // send to self for demo
+                        value: window.ethers.utils.parseEther('0.00001'), // minimal value
+                        data: window.ethers.utils.hexlify(window.ethers.utils.toUtf8Bytes('Order: ' + order))
+                    });
+                    console.log('Order logged to Ethereum blockchain. Tx Hash:', tx.hash);
+                } catch (err) {
+                    console.error('Blockchain error:', err);
+                }
+            } else {
+                console.warn('Ethereum wallet (like MetaMask) not detected.');
+            }
+        }
+
+        async function processPaymentOnBlockchain() {
+            // Connect to Ethereum using ethers.js and MetaMask
+            if (window.ethereum && window.ethers) {
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                    const signer = provider.getSigner();
+                    // Example: send a payment transaction (replace with your payment logic)
+                    const tx = await signer.sendTransaction({
+                        to: '0x000000000000000000000000000000000000dead', // replace with your payment address
+                        value: window.ethers.utils.parseEther('0.0001')
+                    });
+                    console.log('Payment sent to Ethereum blockchain. Tx Hash:', tx.hash);
+                } catch (err) {
+                    console.error('Blockchain payment error:', err);
+                }
+            } else {
+                console.warn('Ethereum wallet (like MetaMask) not detected.');
+            }
+        }
+
+        orderForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const userMsg = orderInput.value;
+            appendMessage('user', userMsg);
+            const aiMsg = aiResponse(userMsg);
+            setTimeout(() => appendMessage('ai', aiMsg), 500);
+            orderInput.value = '';
+        });
+
+        // Polite, interesting, and food-craving welcome greetings
+        const welcomeGreetings = [
+            "Welcome to a world of delicious flavors! I'm your AI waiter, ready to help you discover our chef's signature dishes. Place your order and remember to come back here to make payment for a speedy experience!",
+            "Craving something tasty? You're in the right place! Let me guide you through our mouthwatering menu. After ordering, please return here to make payment so we can serve you faster!",
+            "Hungry for something special? Our kitchen is ready to delight you! Place your order and don't forget to come back here to make payment for express service.",
+            "Welcome, food lover! I'm here to make your dining experience unforgettable. Place your order and always return here to make payment for quick processing!",
+            "Ready for a culinary adventure? Ask about our chef's favorites! After you order, please come back here to make payment so we can get started right away!"
+        ];
+        window.addEventListener('DOMContentLoaded', function() {
+            const welcome = welcomeGreetings[Math.floor(Math.random() * welcomeGreetings.length)];
+            appendMessage('ai', welcome + '<br><button id="orderBtn" style="margin-top:10px;padding:8px 16px;background:#0078d7;color:#fff;border:none;border-radius:4px;cursor:pointer;">Place Order</button>');
+        });
+
+        const foodColors = [
+            '#FFEBEE', // light red (strawberry)
+            '#FFF8E1', // light yellow (cheese)
+            '#E8F5E9', // light green (lettuce)
+            '#E3F2FD', // light blue (ice)
+            '#F3E5F5', // light purple (grape)
+            '#FFF3E0', // light orange (carrot)
+            '#FBE9E7', // light peach (salmon)
+            '#F9FBE7', // light lime (avocado)
+            '#F0F4C3', // light olive (olive)
+            '#F1F8E9'  // light mint (mint)
+        ];
+        function setRandomFoodColor() {
+            document.body.style.background = foodColors[Math.floor(Math.random() * foodColors.length)];
+        }
+        setRandomFoodColor();
+        setInterval(setRandomFoodColor, 4000); // Change color every 4 seconds
+
+        // Add these buttons above the chat
+        function renderActionBar() {
+            let actionBar = document.getElementById('actionBar');
+            if (!actionBar) {
+                actionBar = document.createElement('div');
+                actionBar.id = 'actionBar';
+                actionBar.style.display = 'flex';
+                actionBar.style.justifyContent = 'space-between';
+                actionBar.style.marginBottom = '12px';
+                document.querySelector('.container').insertBefore(actionBar, document.getElementById('chat'));
+            }
+            actionBar.innerHTML = `
+                <button id="preOrderBtn" style="flex:1;margin-right:6px;">Pre Order</button>
+                <button id="reserveBtn" style="flex:1;margin-right:6px;">Table Reservation</button>
+                <button id="menuBtn" style="flex:1;margin-right:6px;">Menu</button>
+                <button id="makePaymentBtn" style="flex:1;">Make Payment</button>
+            `;
+        }
+        renderActionBar();
+
+        // Button event listeners
+        function setActionBarListeners() {
+            document.getElementById('preOrderBtn').onclick = function() {
+                window.open('https://www.restaurantlogin.com/api/fb/56_v_dq', '_blank');
+            };
+            document.getElementById('reserveBtn').onclick = function() {
+                window.open('https://www.restaurantlogin.com/api/fb/56_v_dq', '_blank');
+            };
+            document.getElementById('menuBtn').onclick = function() {
+                window.open('https://www.restaurantlogin.com/api/fb/56_v_dq', '_blank');
+            };
+            document.getElementById('makePaymentBtn').onclick = function() {
+                const accountDetails = 'BANK NAME: OPAY, ACCOUNT NUMBER: 2233445567, ACCOUNT NAME: DEMO HOTEL.';
+                appendMessage('ai', 'Here are the account details for payment: ' + accountDetails + ' After ordering, please return here to make payment so we can serve you faster.');
+            };
+        }
+        setActionBarListeners();
+        // Always re-apply listeners after each AI response (in case action bar is re-rendered)
+        const oldAppendMessage = appendMessage;
+        appendMessage = function(sender, text) {
+            oldAppendMessage(sender, text);
+            setActionBarListeners();
+        }
+    </script>
+</body>
+</html>
